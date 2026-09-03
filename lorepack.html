@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MYTHOS VAULT // LOREPACK TOOL v3.1</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { overflow: hidden; }
+        .layout { display: grid !important; grid-template-columns: 350px 1fr !important; gap: 20px; width: 100%; height: calc(100vh - 100px); margin: 20px 0 0 0; padding: 0 20px; }
+        aside.col { min-width: 350px; display: flex; flex-direction: column; gap: 15px; }
+        section.col { display: flex; flex-direction: column; gap: 20px; height: 100%; overflow: hidden; }
+        
+        .file-drop { 
+            border: 2px dashed var(--border-color); 
+            text-align: center; 
+            padding: 40px 20px; 
+            cursor: pointer; 
+            color: #666;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            background: #080808;
+            transition: 0.2s;
+        }
+        .file-drop.dragover { border-color: var(--accent-color); background: #111; color: var(--accent-color); }
+        
+        #fileManifest { list-style: none; padding: 0; margin: 0; flex-grow: 1; overflow-y: auto; background: #000; border: 1px solid #222; }
+        .file-item { display: flex; justify-content: space-between; padding: 8px 10px; border-bottom: 1px dashed #222; font-size: 0.85rem; }
+        .file-item .delete-btn { background: none; border: none; color: var(--error-color); cursor: pointer; padding: 0 5px; }
+        
+        #systemLog { height: 150px; font-family: 'Consolas', monospace; font-size: 0.8rem; background: #000; border: 1px solid #333; padding: 15px; overflow-y: auto; flex-shrink: 0; }
+        
+        /* API Status Indicator */
+        .status-tag { font-size: 0.75rem; font-weight: bold; margin-left: 10px; }
+        .status-ok { color: var(--accent-color); }
+        .status-err { color: var(--error-color); }
+
+        /* Progress Bar */
+        .progress-container { width: 100%; background: #222; height: 4px; margin-top: 5px; border-radius: 2px; overflow: hidden; }
+        .progress-bar { height: 100%; background: var(--accent-color); width: 0%; transition: width 0.3s ease; }
+    </style>
+</head>
+<body>
+
+<header style="padding: 0 20px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom: 1px solid #333; padding-bottom: 10px;">
+        <div><h1 style="margin:0; border:none;">LOREPACK TOOL // V3.1</h1><div style="font-size: 0.8em; color: #666;">BATCH INGESTION & CURATION</div></div>
+        <div id="statusIndicator" style="color:var(--accent-color); font-weight:bold;">SYSTEM READY</div>
+    </div>
+</header>
+
+<div class="layout">
+    <aside class="col">
+        <div class="panel">
+            <div class="panel-header">01 / TARGET IDENTITY</div>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="agentHandle" placeholder="HANDLE (e.g. BARBELO)">
+                <button onclick="window.LOREPACK.loadAgentByHandle()" style="width:120px;">LOAD</button>
+            </div>
+            <div id="agentInfo" style="margin-top:15px; font-size:0.9em; padding: 10px; border: 1px solid #222; background: #050505;">
+                <div style="color:#666;">STATUS: <span id="agentStatus" style="color:var(--text-color); font-weight:bold;">WAITING...</span></div>
+                <div style="margin-top:5px; color:#666;">NODES: <span id="vectorCount" style="color:var(--accent-color)">0</span></div>
+            </div>
+        </div>
+        
+        <div class="panel" style="flex-grow: 1;">
+            <div class="panel-header">
+                02 / INGESTION 
+                <span id="apiStatus" class="status-tag status-err">[ KEY MISSING ]</span>
+            </div>
+            <div class="input-group">
+                <input type="password" id="apiKey" placeholder="Paste Gemini API Key Here" oninput="window.LOREPACK.saveKey(this.value)">
+            </div>
+            
+            <div style="margin-top:15px;">
+                <label style="margin-bottom:8px; display:block;">DROP ZONE (.TXT)</label>
+                <div class="file-drop" id="dropZone"
+                     onclick="document.getElementById('fileInput').click()"
+                     ondragover="window.LOREPACK.handleDragOver(event)"
+                     ondragleave="window.LOREPACK.handleDragLeave(event)"
+                     ondrop="window.LOREPACK.handleDrop(event)">
+                    [ CLICK OR DRAG FILES HERE ]
+                </div>
+                <input type="file" id="fileInput" accept=".txt" multiple style="display:none" onchange="window.LOREPACK.ingestLoreFile(this.files)">
+            </div>
+            
+            <div id="ingestStatus" style="font-size:0.8em; color:#666; margin-top:15px; display:none;">
+                PROCESSING: <span id="ingestPercent" style="color:var(--accent-color)">0%</span>
+                <div style="float:right;">
+                    <button id="pauseResumeBtn" onclick="window.LOREPACK.toggleIngestionPause()" style="background:none; border:none; color:#f0ad4e; cursor:pointer; font-size:0.9em;">[ PAUSE ]</button>
+                    <button onclick="window.LOREPACK.cancelIngestion()" style="background:none; border:none; color:var(--error-color); cursor:pointer; font-size:0.9em; margin-left:10px;">[ CANCEL ]</button>
+                </div>
+                <div class="progress-container"><div id="ingestBar" class="progress-bar"></div></div>
+            </div>
+
+            <div class="panel-header" style="margin-top:20px;">03 / MANAGE LOREPACK</div>
+            <div style="display:flex; gap:10px;">
+                <button class="primary" style="flex:1; padding:15px;" onclick="window.LOREPACK.exportLorePack()">EXPORT JSON</button>
+                <button class="secondary" style="flex:1; padding:15px; background:#222; border:1px solid #444; color:#ccc; cursor:pointer;" onclick="document.getElementById('importFile').click()">IMPORT JSON</button>
+            </div>
+            <input type="file" id="importFile" accept=".json" style="display:none" onchange="window.LOREPACK.importLorePack(this.files)">
+        </div>
+    </aside>
+
+    <section class="col">
+        <div class="panel" style="flex-grow: 1;">
+            <div class="panel-header">04 / CURATION MANIFEST</div>
+            <ul id="fileManifest"><li style="padding:10px; color:#666;">Load Agent to view files.</li></ul>
+            <button onclick="window.LOREPACK.purgeAllVectors()" class="danger" style="margin-top:10px;">PURGE ALL VECTORS</button>
+        </div>
+        <div class="panel" style="flex-shrink: 0; height: 200px;">
+            <div class="panel-header">SYSTEM LOG</div>
+            <div id="systemLog"></div>
+        </div>
+    </section>
+</div>
+
+<!-- Node Editor Modal -->
+<div id="nodeEditor" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#080808; border:1px solid #333; width:90%; max-width:900px; height:85%; display:flex; flex-direction:column; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #333; padding-bottom:10px;">
+            <h3 style="margin:0; color:var(--accent-color);">NODE EDITOR</h3>
+            <input type="text" id="nodeSearch" placeholder="Filter nodes..." style="background:#111; border:1px solid #333; color:#ccc; padding:5px 10px; width:200px;" oninput="window.LOREPACK.filterNodes(this.value)">
+            <button onclick="document.getElementById('nodeEditor').style.display='none'" style="background:none; border:none; color:#fff; cursor:pointer; font-size:1.5em;">&times;</button>
+        </div>
+        <div id="nodeList" style="flex-grow:1; overflow-y:auto; display:flex; flex-direction:column; gap:15px; padding-right:10px;"></div>
+        <div style="display:flex; justify-content:center; align-items:center; gap:15px; margin-top:15px; padding-top:10px; border-top:1px solid #333;">
+            <button id="prevPage" onclick="window.LOREPACK.changePage(-1)" style="background:#222; border:1px solid #444; color:#fff; padding:5px 10px; cursor:pointer;">&lt; PREV</button>
+            <span id="pageInfo" style="color:#888; font-size:0.9em;">Page 1 of 1</span>
+            <button id="nextPage" onclick="window.LOREPACK.changePage(1)" style="background:#222; border:1px solid #444; color:#fff; padding:5px 10px; cursor:pointer;">NEXT &gt;</button>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="js/core.js"></script>
+<script type="module" src="js/lorepack.js"></script>
+</body>
+</html>

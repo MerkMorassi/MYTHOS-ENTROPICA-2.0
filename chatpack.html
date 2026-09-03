@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYTHOS VAULT // CHATPACK CONSOLE</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="layout">
+    <div class="col">
+        <div class="panel">
+            <h2>01 / LOAD LOREPACK</h2>
+            
+            <div class="input-group">
+                <label for="apiKey">GEMINI API KEY</label>
+                <input type="password" id="apiKey" placeholder="Enter API Key..." autocomplete="off">
+            </div>
+            <div id="keyStatus" class="status-tag">[ KEY UNLOADED ]</div>
+
+            <div class="input-group">
+                <label>LOREPACK FILE (.JSON)</label>
+                <input type="file" id="file-input" style="display: none;">
+                <button id="lorepackFileTrigger" class="primary">SELECT LOREPACK</button>
+            </div>
+            
+            <div class="panel-header">ACTIVE AGENT: <span id="agentHandleDisplay">NONE</span></div>
+            <div class="panel-header">MEMORY NODES: <span id="vectorCount">0</span></div>
+            
+        </div>
+        
+        <div class="panel" style="flex-grow: 1;">
+            <h3 style="color:var(--main-color); border-bottom:1px dashed #333; padding-bottom:5px;">DEKATRIADIC CLUSTER</h3>
+            <div id="agent-list" class="cluster-list" style="height: 250px; overflow-y: auto;">
+                <div style="padding:10px; text-align:center; color:#444;">NO AGENTS LOADED</div>
+            </div>
+            <button id="clear-cluster-button" style="margin-top: 10px; font-size:0.7em;">CLEAR CLUSTER</button>
+        </div>
+
+        <div class="panel">
+            <h2>02 / MODEL CONFIG</h2>
+            
+            <div class="input-group">
+                <label for="modelDropdown">MODEL SELECT</label>
+                <select id="modelDropdown">
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Fast)</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (Accuracy)</option>
+                </select>
+            </div>
+            
+            <div class="input-group">
+                <label for="sysInst">SYSTEM INSTRUCTION</label>
+                <textarea id="sysInst"></textarea>
+            </div>
+
+            <div class="input-group">
+                <label for="orchestratorUrl">ORCHESTRATOR URL</label>
+                <input type="text" id="orchestratorUrl" placeholder="http://localhost:4000/api/query">
+            </div>
+        </div>
+    </div>
+
+    <div class="col" style="flex-grow: 1;">
+        <div class="panel" style="flex-grow: 1; display: flex; flex-direction: column; min-height: 0;">
+            <div class="panel-header">03 / LIVE SESSION <span id="activeAgentDisplay">// OFFLINE</span></div>
+            
+            <div id="messages-container" style="flex-grow: 1; overflow-y: auto; background:#000; padding:15px; border:1px solid #1a1a1a;">
+                <div class="msg sys">> SYSTEM: Console Ready.</div>
+                <div class="msg sys">> HINT: Import a LorePack to initialize the Noetic Pull.</div>
+            </div>
+            
+            <div id="queryArea">
+                <textarea 
+                    id="message-input" 
+                    placeholder="Enter query..."
+                ></textarea>
+                <button id="send-button" style="width: 120px;">SEND</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="js/chatpack-ui.js"></script>
+</body>
+</html>

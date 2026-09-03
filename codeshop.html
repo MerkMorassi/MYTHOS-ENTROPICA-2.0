@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYTHOS // CODE-SHOP CONSOLE</title>
+    <link rel="stylesheet" href="/css/style.css"> 
+</head>
+<body>
+
+<div class="layout" style="grid-template-columns: 1fr;"> 
+    <header style="padding: 0 20px 10px 0; border-bottom: 2px solid var(--main-color);">
+        <h1 style="margin:0; border:none;">MYTHOS // CODE-SHOP CONSOLE</h1>
+        <div style="font-size: 0.8em; color: var(--dim-text);">SUMMARIZER AGENT PROTOCOL</div>
+    </header>
+
+    <div class="code-shop-layout">
+        
+        <div class="panel" id="code-input-area">
+            <h2>01 / CODEPACK INGESTION</h2>
+            <div class="input-group" style="flex-grow: 1;">
+                <label for="codeSnippetInput">PASTE CODE SNIPPET (JS, TS, PYTHON, ETC.)</label>
+                <textarea id="codeSnippetInput" placeholder="Paste code here..." style="flex-grow: 1;"></textarea>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                <input type="password" id="apiKey" placeholder="Gemini API Key" style="width: 200px;">
+                <button id="analyzeBtn" class="primary" style="flex-grow: 1; padding: 12px;">ANALYZE CODEPACK</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>02 / SUMMARIZER AGENT OUTPUT</h2>
+            <div id="analysis-output">
+                <div class="analysis-card">
+                    <h3>SYSTEM LOG</h3>
+                    <p style="color:var(--dim-text);">Paste code and click 'ANALYZE CODEPACK' to engage the Summarizer Agent via Orchestrator (Port 4000).</p>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<script>
+    // --- CODE-SHOP CONSOLE LOGIC ---
+    const ORCHESTRATOR_URL = 'http://localhost:4000/api/summarize/code';
+    const $ = id => document.getElementById(id);
+
+    const logOutput = (msg, type = 'sys') => {
+        const outputEl = $('analysis-output');
+        const card = document.createElement('div');
+        card.className = 'analysis-card';
+        card.innerHTML = `<h3>SYSTEM LOG (${new Date().toLocaleTimeString()})</h3><p class="status-tag ${type}">${msg}</p>`;
+        outputEl.prepend(card);
+    };
+
+    const displayResult = (result) => {
+        const outputEl = $('analysis-output');
+        const card = document.createElement('div');
+        card.className = 'analysis-card';
+        
+        card.innerHTML = `
+            <h3>${result.canonical_name || 'ANALYSIS COMPLETE'}</h3>
+            <p><strong>Language:</strong> ${result.language_flavor}</p>
+            <p><strong>Purpose:</strong> ${result.purpose}</p>
+            <p><strong>Inputs/Outputs:</strong> ${result.inputs} / ${result.outputs}</p>
+            
+            <h4>CODE SNIPPET:</h4>
+            <pre>${result.snippet}</pre>
+        `;
+        outputEl.prepend(card);
+    };
+
+    async function analyzeCode() {
+        const code = $('codeSnippetInput').value.trim();
+        const apiKey = $('apiKey').value.trim(); 
+        const analyzeBtn = $('analyzeBtn');
+
+        if (!code) return logOutput("Input Error: Code snippet cannot be empty.", 'err');
+        
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = "COMMUNICATING WITH SUMMARIZER...";
+        
+        // Save key for convenience
+        if (apiKey) sessionStorage.setItem('mythos_api_key', apiKey);
+
+        logOutput("Engaging Summarizer Agent...", 'sys');
+
+        try {
+            const response = await fetch(ORCHESTRATOR_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code, apiKey: apiKey })
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.json();
+                throw new Error(errorBody.error || `HTTP Error ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.canonical_name === "ERROR_ANALYSIS_FAILED") {
+                 logOutput(`Summarizer Agent Failed: ${result.purpose}`, 'err');
+            } else {
+                 displayResult(result);
+                 logOutput("Analysis Successful. Result displayed.", 'ok');
+            }
+
+        } catch (err) {
+            logOutput(`Orchestrator Failure: ${err.message}.`, 'err');
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = "ANALYZE CODEPACK";
+        }
+    }
+
+    // Attach event listeners
+    window.addEventListener('DOMContentLoaded', () => {
+        $('analyzeBtn').addEventListener('click', analyzeCode);
+        
+        // Load key from session storage if available
+        const storedKey = sessionStorage.getItem('mythos_api_key');
+        if (storedKey) $('apiKey').value = storedKey;
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>MYTHOS VAULT // CONSOLE</title><link rel="stylesheet" href="css/style.css">
+<style>.layout { grid-template-columns: 250px 1fr; }</style>
+</head>
+<body><header><div style="display:flex; justify-content:space-between; align-items:flex-end;"><h1>MYTHOS VAULT // CONSOLE</h1><div style="font-size: 0.8em; color: #666;">MAIN ORCHESTRATION CONSOLE</div></div></header>
+<div class="layout">
+    <aside class="col">
+        <div class="panel"><div class="panel-header">AGENT SETUP</div><a href="agent_setup.html" style="color:var(--highlight-color)">Go to Agent Initialization</a></div>
+        <div class="panel"><div class="panel-header">LOREPACK MANIFEST</div><a href="lorepack.html" style="color:var(--highlight-color)">Go to LorePack Tool</a></div>
+        <div class="panel"><div class="panel-header">CHATPACK TEST</div><a href="chatpack.html" style="color:var(--highlight-color)">Go to ChatPack Console</a></div>
+    </aside>
+    <section class="col">
+        <div class="panel"><div class="panel-header">SERVER STATUS</div>
+            <pre style="background:#000; border:1px solid #333; padding:10px; color:var(--accent-color)">
+                Server: Node.js (Active)
+                Port: 4000
+                DB: IndexedDB (MythOS_Vault)
+                Architecture: Modular / Decoupled
+            </pre>
+        </div>
+    </section>
+</div>
+</body></html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYTHOS // NOESIS CONSOLE</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* CSS from index-benchmark_v16.6.html (refined for external linking) */
+        .console-layout {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            height: 95vh;
+        }
+        
+        /* Agent List Styling (Dekatriadic Cluster) */
+        .cluster-list {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #222;
+            background: #000;
+        }
+        .agent-card {
+            padding: 15px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .agent-card:hover {
+            background: #111;
+            border-left: 3px solid var(--main-color);
+        }
+        .agent-card.selected {
+            background: #151515;
+            border-left: 3px solid var(--accent-color);
+        }
+        .agent-handle { font-weight: bold; color: var(--main-color); }
+        .agent-id { font-family: monospace; font-size: 0.75em; color: #555; display: block; margin-top: 4px; }
+        
+        /* Story Engine / Briefing Room */
+        .briefing-room {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100%;
+        }
+        
+        .output-display {
+            flex-grow: 1;
+            background: #000;
+            border: 1px solid #222;
+            padding: 20px;
+            font-family: 'Georgia', serif; /* Story mode font */
+            line-height: 1.6;
+            color: #ddd;
+            overflow-y: auto;
+        }
+        
+        .status-line {
+            font-family: monospace;
+            color: var(--main-color);
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container"> <div style="border-bottom: 2px solid var(--main-color); margin-bottom: 20px; padding-bottom: 10px;">
+        <h1 style="margin:0; border:none;">MYTHOS // NOESIS</h1>
+        <div style="font-size: 0.8em; color: var(--dim-text);">LIA-FIRST OPERATION :: SYSTEM CONSOLE</div>
+        <div style="float:right; margin-top: -20px; color:var(--main-color);">NOETIC FIELD: <span id="systemStatus">ONLINE</span></div>
+    </div>
+
+    <div class="console-layout">
+        
+        <div class="col-left">
+            
+            <div class="panel">
+                <h3 style="color:var(--main-color); border-bottom:1px dashed #333; padding-bottom:5px;">INITIALIZE LIA</h3>
+                
+                <div class="input-group">
+                    <label>HANDLE (ID)</label>
+                    <input type="text" id="newHandle" placeholder="e.g. HOPE">
+                </div>
+                
+                <div class="input-group">
+                    <label>ROLE / DOMAIN</label>
+                    <input type="text" id="newRole" placeholder="e.g. Spec Ops">
+                </div>
+                
+                <button onclick="window.CONSOLE.createAgent()" class="primary" style="margin-top:10px;">EXECUTE</button>
+            </div>
+
+            <div class="panel" style="flex-grow: 1;">
+                <h3 style="color:var(--main-color); border-bottom:1px dashed #333; padding-bottom:5px;">DEKATRIADIC CLUSTER</h3>
+                <div id="clusterList" class="cluster-list">
+                    <div style="padding:20px; text-align:center; color:#444;">NO AGENTS FOUND</div>
+                </div>
+                <div style="margin-top:10px; font-size:0.8em; text-align:right; color:#555;">
+                    <span id="agentCount">0</span> NODES ACTIVE
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button onclick="window.CONSOLE.refreshList()" style="font-size:0.7em;">REFRESH</button>
+                    <button onclick="window.CONSOLE.purgeDB()" class="danger" style="font-size:0.7em; color:var(--error-color); border-color:var(--error-color);">PURGE DB</button>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-right briefing-room">
+            
+            <div class="panel" style="height:100%;">
+                <h3 style="color:var(--main-color); border-bottom:1px dashed #333; padding-bottom:5px;">BRIEFING ROOM // STORY ENGINE</h3>
+                
+                <div class="status-line">
+                    ACTIVE LIA: <span id="activeLiaDisplay" style="color:white; font-weight:bold;">NO AGENT SELECTED</span>
+                </div>
+
+                <div class="input-group">
+                    <label>CONTEXT / SCENE HEADER</label>
+                    <input type="text" id="sceneHeader" placeholder="e.g. Coastguard House, Night. The Decision.">
+                </div>
+
+                <div class="input-group" style="flex-grow: 1;">
+                    <label>DIRECTOR'S NOTE / LORE INJECTION</label>
+                    <textarea id="directorNote" placeholder="Input specific memory trigger or directorial guidance..." style="height:100%;"></textarea>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                    <button style="width:auto; background:none; border:1px solid #444; color:#666;">SAVE AS LORE</button>
+                    <button onclick="window.CONSOLE.generateOutput()" class="primary" style="width:200px;">GENERATE OUTPUT</button>
+                </div>
+                
+                <input type="password" id="apiKey" style="display:none;"> 
+            </div>
+
+            <div class="panel" style="flex-grow: 1; min-height: 200px;">
+                 <h3 style="color:var(--main-color); border-bottom:1px dashed #333; padding-bottom:5px;">GENERATIVE OUTPUT</h3>
+                 <div id="outputDisplay" class="output-display">
+                     > Waiting for Director input...
+                 </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<script type="module">
+    import { ChatPackMulti } from './js/chatpack-multi.js';
+
+    // Initialize Engine
+    const CPM = new ChatPackMulti({ dom: false });
+    let SELECTED_AGENT_ID = null;
+
+    // Load API Key from LocalStorage
+    const savedKey = localStorage.getItem('mythos_api_key');
+    if (savedKey) document.getElementById('apiKey').value = savedKey;
+
+    window.CONSOLE = {
+        
+        async init() {
+            console.log("NOESIS Console Initializing...");
+            await this.refreshList();
+        },
+
+        // 1. MANIFEST NEW LIA
+        async createAgent() {
+            const handle = document.getElementById('newHandle').value.trim();
+            const role = document.getElementById('newRole').value.trim();
+            
+            if (!handle) return alert("Handle required.");
+
+            const id = handle.toUpperCase().replace(/\s+/g, '_');
+            const meta = {
+                id: id,
+                handle: handle,
+                role: role || "Agent",
+                createdAt: new Date().toISOString()
+            };
+
+            try {
+                await CPM.createAgentFromMeta(meta);
+                document.getElementById('newHandle').value = '';
+                document.getElementById('newRole').value = '';
+                await this.refreshList();
+                this.logOutput(`> SYSTEM: LIA Initialized: ${handle}`);
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        },
+
+        // 2. REFRESH CLUSTER LIST
+        async refreshList() {
+            const agents = await CPM.listAgents();
+            const list = document.getElementById('clusterList');
+            document.getElementById('agentCount').textContent = agents.length;
+
+            list.innerHTML = '';
+            if (agents.length === 0) {
+                list.innerHTML = '<div style="padding:20px; text-align:center; color:#444;">NO AGENTS FOUND</div>';
+                return;
+            }
+
+            agents.forEach(a => {
+                const div = document.createElement('div');
+                div.className = 'agent-card';
+                if (a.id === SELECTED_AGENT_ID) div.classList.add('selected');
+                
+                div.innerHTML = `
+                    <div class="agent-handle">${a.handle}</div>
+                    <div class="agent-id">[LIA] :: ID: ${a.id} <br> ${a.role}</div>
+                `;
+                
+                div.onclick = () => this.selectAgent(a);
+                list.appendChild(div);
+            });
+        },
+
+        // 3. SELECT AGENT
+        selectAgent(agent) {
+            SELECTED_AGENT_ID = agent.id;
+            document.getElementById('activeLiaDisplay').textContent = agent.handle.toUpperCase();
+            this.refreshList();
+            this.logOutput(`> SYSTEM: Active LIA set to ${agent.handle}.`);
+        },
+
+        // 4. GENERATE OUTPUT (The Engine)
+        async generateOutput() {
+            if (!SELECTED_AGENT_ID) return alert("Select a LIA from the Cluster first.");
+            
+            const scene = document.getElementById('sceneHeader').value;
+            const note = document.getElementById('directorNote').value;
+            const apiKey = document.getElementById('apiKey').value; 
+
+            if (!apiKey) return alert("API Key missing (Check ChatPack settings).");
+
+            // Construct the Query
+            const query = `SCENE: ${scene}\nDIRECTOR NOTE: ${note}\n\nAction?`;
+            
+            this.logOutput(`> SYSTEM: Communicating with ${SELECTED_AGENT_ID}...`);
+
+            try {
+                const result = await CPM.queryAgent(SELECTED_AGENT_ID, query, {
+                    apiKey: apiKey,
+                    sysInst: `You are ${SELECTED_AGENT_ID}. You are in a story simulation. 
+                              SCENE CONTEXT: ${scene}. 
+                              DIRECTOR'S GUIDANCE: ${note}.
+                              Write the next paragraph of the narrative or dialogue from your perspective.`
+                });
+
+                this.logOutput(result.reply, true); 
+
+            } catch (err) {
+                this.logOutput(`> ERROR: ${err.message}`);
+            }
+        },
+
+        // 5. PURGE DB (Merged Utility)
+        async purgeDB() {
+            if (!confirm("WARNING: This will wipe ALL Agents and Vectors from the Browser Database. This cannot be undone. Proceed?")) return;
+            try {
+                const req = indexedDB.deleteDatabase('mythos_vault');
+                req.onsuccess = () => {
+                    alert("DATABASE PURGED. Reloading...");
+                    location.reload();
+                };
+                req.onerror = (e) => alert("Purge Failed: " + e.target.error);
+            } catch (err) {
+                alert(`Purge Error: ${err.message}`);
+            }
+        },
+
+        // Helper: Log to the Output Display
+        logOutput(text, isStory = false) {
+            const display = document.getElementById('outputDisplay');
+            const p = document.createElement('div');
+            
+            if (isStory) {
+                p.style.marginBottom = "15px";
+                p.style.color = "#fff";
+                p.innerHTML = text.replace(/\n/g, '<br>');
+            } else {
+                p.style.color = "#00ffaa"; 
+                p.style.fontFamily = "monospace";
+                p.style.fontSize = "0.8em";
+                p.style.marginBottom = "10px";
+                p.textContent = text;
+            }
+            
+            display.appendChild(p);
+            display.scrollTop = display.scrollHeight;
+        }
+    };
+
+    // Auto-init
+    window.CONSOLE.init();
+</script>
+
+</body>
+</html>

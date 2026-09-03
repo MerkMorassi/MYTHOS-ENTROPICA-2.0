@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MythOS // LIA INITIALIZATION CONSOLE</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* FORCE DASHBOARD LAYOUT OVERRIDE */
+        body {
+            overflow: hidden; /* Prevent body scroll, let panels scroll */
+        }
+
+        .layout {
+            display: grid !important;
+            grid-template-columns: 350px 1fr !important; /* Fixed Sidebar / Fluid Main */
+            gap: 20px;
+            width: 100%;
+            height: calc(100vh - 100px);
+            margin: 20px 0 0 0; /* Align top-left */
+            padding: 0 20px;
+        }
+
+        /* Sidebar Styling */
+        aside.col {
+            min-width: 350px;
+        }
+
+        /* Main Content Styling */
+        section.col {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Agent List Specifics */
+        ul#agentList {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid #333;
+            background: #050505;
+            padding: 0;
+        }
+
+        li.agent-card {
+            padding: 12px;
+            border-bottom: 1px solid #222;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        li.agent-card:hover {
+            background: #111;
+        }
+
+        /* Log Panel */
+        #systemLog {
+            height: 150px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.8rem;
+            background: #000;
+            border: 1px solid #333;
+            padding: 10px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+
+<header style="padding: 0 20px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom: 1px solid #333; padding-bottom: 10px;">
+        <div>
+            <h1 style="margin:0; border:none;">MYTHOS // LIA INITIALIZATION</h1>
+            <div style="font-size: 0.8em; color: #666;">DEKATRIADIC CLUSTER MANAGEMENT</div>
+        </div>
+        <div id="status" style="color:#666; font-weight:bold;">CONNECTING...</div>
+    </div>
+</header>
+
+<div class="layout">
+    
+    <aside class="col">
+        <div class="panel">
+            <div class="panel-header">01 / MANIFEST NEW LIA</div>
+            
+            <div class="input-group">
+                <label>HANDLE (ID)</label>
+                <input type="text" id="newHandle" placeholder="e.g. CALLIOPE">
+            </div>
+            
+            <div class="input-group" style="margin-top:10px;">
+                <label>ROLE / DOMAIN</label>
+                <input type="text" id="newRole" value="Liminal Intelligence Agent">
+            </div>
+
+            <button class="primary" id="initBtn" style="width:100%; margin-top:20px; padding: 15px;" onclick="window.createAgent()">
+                INITIALIZE LIA
+            </button>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">DATABASE OPS</div>
+            <div style="display:flex; gap:10px;">
+                <button onclick="window.loadAgentList()" style="flex:1;">REFRESH LIST</button>
+                <button onclick="window.purgeDatabase()" class="danger" style="flex:1;">PURGE DB</button>
+            </div>
+        </div>
+    </aside>
+
+    <section class="col">
+        <div class="panel" style="flex-grow: 1; display:flex; flex-direction:column;">
+            <div class="panel-header">02 / ACTIVE AGENT MANIFEST</div>
+            <ul id="agentList">
+                <li style="padding:20px; color:#666; text-align:center;">Scanning Noetic Field...</li>
+            </ul>
+        </div>
+
+        <div id="systemLog"></div>
+    </section>
+
+</div>
+
+<script type="module">
+import { SimpleDB } from './js/core.js'; 
+
+// --- CORE SETUP ---
+const DB = new SimpleDB(); 
+const $=(id)=>document.getElementById(id); 
+
+// --- LOGGER ---
+const log = (msg, type = 'info') => { 
+    const box = $('systemLog');
+    const el = document.createElement('div');
+    const color = type === 'error' ? '#ff3333' : type === 'ok' ? '#00ffaa' : '#888';
+    el.style.color = color;
+    el.style.marginBottom = '4px';
+    el.innerHTML = `<span style="opacity:0.5;">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+    box.prepend(el); 
+};
+
+// --- FUNCTIONS ATTACHED TO WINDOW FOR HTML ACCESS ---
+
+window.createAgent = async function() {
+    console.log("Create Agent Clicked"); // Debug to Console
+    const btn = $('initBtn');
+    const h = $('newHandle').value.trim().toUpperCase(); 
+    const r = $('newRole').value.trim(); 
+    
+    if (!h) {
+        log("ERROR: Handle cannot be empty.", 'error');
+        $('newHandle').style.borderColor = 'var(--error-color)';
+        return;
+    }
+    $('newHandle').style.borderColor = 'var(--border-color)';
+
+    // Lock UI
+    btn.disabled = true;
+    btn.textContent = "WRITING TO DB...";
+
+    const newAgent = { 
+        id: crypto.randomUUID(), 
+        handle: h, 
+        role: r, 
+        created: new Date().toISOString() 
+    };
+
+    try {
+        log(`Attempting to manifest ${h}...`);
+        await DB.put('agents', newAgent); 
+        
+        log(`SUCCESS: ${h} Initialized.`, 'ok'); 
+        $('newHandle').value=''; 
+        
+        await window.loadAgentList(); 
+        
+    } catch (err) { 
+        log(`CRITICAL FAILURE: ${err.message}`, 'error'); 
+        console.error(err);
+    } finally {
+        // Unlock UI
+        btn.disabled = false;
+        btn.textContent = "INITIALIZE LIA";
+    }
+};
+
+window.loadAgentList = async function() {
+    const display = $('agentList');
+    try { 
+        const agents = await DB.getAll('agents'); 
+        
+        if (agents.length === 0) { 
+            display.innerHTML = '<li style="padding:20px; color:#666; text-align:center;">No Agents Found in Database.</li>'; 
+            return; 
+        }
+
+        // Sort Alphabetically
+        agents.sort((a, b) => a.handle.localeCompare(b.handle));
+        
+        display.innerHTML = ''; // Clear list
+        agents.forEach(agent => { 
+            const li = document.createElement('li');
+            li.className = 'agent-card';
+            li.innerHTML = `
+                <div>
+                    <strong style="color:var(--accent-color); font-size:1.1em;">${agent.handle}</strong>
+                    <div style="font-size:0.8em; color:#888;">${agent.role}</div>
+                </div>
+                <div style="font-size:0.7em; color:#444; font-family:monospace;">${agent.id.slice(0,8)}</div>
+            `;
+            display.appendChild(li); 
+        });
+        log(`Manifest Refreshed. Total Agents: ${agents.length}`); 
+    } catch (err) { 
+        log(`READ ERROR: ${err.message}`, 'error'); 
+    }
+};
+
+window.purgeDatabase = async function() {
+    if(!confirm("WARNING: This will delete ALL Agent identities. Proceed?")) return;
+    try { 
+        await DB.clear('agents'); 
+        log("DATABASE PURGED.", 'error'); 
+        await window.loadAgentList(); 
+    } catch(err) { 
+        log(`PURGE ERROR: ${err.message}`, 'error'); 
+    }
+};
+
+// --- INIT ---
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await DB.ready;
+        $('status').textContent = "SYSTEM ONLINE";
+        $('status').style.color = "var(--accent-color)";
+        log("System Initialized. Database Connected.", 'ok');
+        await window.loadAgentList();
+    } catch (e) {
+        $('status').textContent = "DB ERROR";
+        $('status').style.color = "var(--error-color)";
+        log(`INIT ERROR: ${e}`, 'error');
+    }
+});
+</script>
+</body>
+</html>

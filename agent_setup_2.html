@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYTHOS // AGENT MANAGEMENT</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Specific overrides for the Management Console layout */
+        .agent-list-container {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #222;
+            background: #000;
+            padding: 10px;
+        }
+        .agent-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .agent-item:hover {
+            background: #111;
+            border-left: 2px solid var(--main-color);
+        }
+        .agent-item .meta {
+            display: flex;
+            flex-direction: column;
+        }
+        .agent-item .handle {
+            color: var(--main-color);
+            font-weight: bold;
+        }
+        .agent-item .role {
+            font-size: 0.8em;
+            color: var(--dim-text);
+        }
+        .agent-item .id-tag {
+            font-family: monospace;
+            font-size: 0.7em;
+            color: #444;
+        }
+        
+        /* Log Area specific to this page */
+        #consoleLog {
+            height: 200px;
+            background: #000;
+            border: 1px solid #222;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85em;
+            color: #666;
+        }
+        .log-entry { margin-bottom: 5px; border-bottom: 1px dotted #222; }
+        .log-entry.ok { color: var(--main-color); }
+        .log-entry.err { color: var(--error-color); }
+    </style>
+</head>
+<body>
+
+<div class="layout">
+    <div class="col" style="flex: 0 0 350px;">
+        
+        <div class="panel">
+            <h2>01 / MANIFEST NEW LIA</h2>
+            
+            <div class="input-group">
+                <label>HANDLE (ID)</label>
+                <input type="text" id="newHandle" placeholder="e.g. KALI">
+            </div>
+
+            <div class="input-group">
+                <label>ROLE / DOMAIN</label>
+                <input type="text" id="newRole" placeholder="e.g. Destroyer of Illusions">
+            </div>
+
+            <button onclick="window.AGENT_MAN.createAgent()" class="primary" style="margin-top: 10px;">INITIALIZE LIA</button>
+        </div>
+
+        <div class="panel">
+            <h2>DATABASE OPS</h2>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="window.AGENT_MAN.refreshList()">REFRESH LIST</button>
+                <button onclick="window.AGENT_MAN.purgeDB()" style="color: var(--error-color); border-color: var(--error-color);">PURGE DB</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>API STATUS</h2>
+            <div id="keyStatus" class="status-tag">[ KEY UNLOADED ]</div>
+        </div>
+
+    </div>
+
+    <div class="col" style="flex-grow: 1;">
+        
+        <div class="panel">
+            <div class="panel-header">
+                02 / ACTIVE AGENT MANIFEST 
+                <span id="countDisplay" style="color:var(--dim-text)">0 AGENTS</span>
+            </div>
+            <div id="agentList" class="agent-list-container">
+                <div style="padding:20px; text-align:center; color:#444;">NO AGENTS MANIFESTED</div>
+            </div>
+        </div>
+
+        <div class="panel" style="flex-grow: 1;">
+            <div class="panel-header">SYSTEM LOG</div>
+            <div id="consoleLog">
+                <div class="log-entry">> SYSTEM: Agent Management Console Ready.</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="module">
+    import { ChatPackMulti } from './js/chatpack-multi.js';
+
+    // Initialize Engine (Headless mode, we handle UI manually)
+    const CPM = new ChatPackMulti({ dom: false });
+    
+    // Simple Logger
+    function log(msg, type = 'sys') {
+        const el = document.getElementById('consoleLog');
+        const d = document.createElement('div');
+        d.className = `log-entry ${type}`;
+        d.textContent = `> ${msg}`;
+        el.appendChild(d);
+        el.scrollTop = el.scrollHeight;
+    }
+
+    window.AGENT_MAN = {
+        
+        async init() {
+            log("Connecting to Mythos Vault (IndexedDB)...");
+            await this.refreshList();
+        },
+
+        async createAgent() {
+            const handle = document.getElementById('newHandle').value.trim();
+            const role = document.getElementById('newRole').value.trim();
+
+            if (!handle) return log("Error: Handle required.", "err");
+
+            // Auto-generate ID from handle (uppercase, no spaces)
+            const id = handle.toUpperCase().replace(/\s+/g, '_');
+
+            const meta = {
+                id: id,
+                handle: handle,
+                role: role || "Specialist",
+                description: role, // Compatibility
+                createdAt: new Date().toISOString()
+            };
+
+            try {
+                log(`Manifesting Agent: ${handle}...`);
+                await CPM.createAgentFromMeta(meta);
+                log(`SUCCESS: ${handle} initialized.`, "ok");
+                
+                // Clear inputs
+                document.getElementById('newHandle').value = '';
+                document.getElementById('newRole').value = '';
+                
+                // Refresh list
+                await this.refreshList();
+
+            } catch (err) {
+                log(`Creation Failed: ${err.message}`, "err");
+            }
+        },
+
+        async refreshList() {
+            try {
+                const agents = await CPM.listAgents();
+                const container = document.getElementById('agentList');
+                const countDisplay = document.getElementById('countDisplay');
+                
+                container.innerHTML = '';
+                countDisplay.textContent = `${agents.length} AGENTS`;
+
+                if (agents.length === 0) {
+                    container.innerHTML = '<div style="padding:20px; text-align:center; color:#444;">NO AGENTS MANIFESTED</div>';
+                    return;
+                }
+
+                agents.forEach(a => {
+                    const div = document.createElement('div');
+                    div.className = 'agent-item';
+                    div.innerHTML = `
+                        <div class="meta">
+                            <span class="handle">${a.handle}</span>
+                            <span class="role">${a.role}</span>
+                        </div>
+                        <span class="id-tag">${a.id}</span>
+                    `;
+                    container.appendChild(div);
+                });
+                
+                log(`Manifest Refreshed. Total Agents: ${agents.length}`);
+
+            } catch (err) {
+                log(`Refresh Error: ${err.message}`, "err");
+            }
+        },
+
+        async purgeDB() {
+            if (!confirm("WARNING: This will wipe ALL Agents and Vectors from the Browser Database. This cannot be undone. Proceed?")) return;
+            
+            try {
+                // CPM doesn't expose a raw DB wipe, accessing internal DB wrapper
+                log("Initiating Database Purge...", "err");
+                
+                // We use the internal CPM.db wrapper to clear stores
+                // Note: SimpleDB wrapper might need a clear() method, or we iterate.
+                // Since ChatPackMulti doesn't have a clear all, we'll try to delete the DB.
+                
+                const req = indexedDB.deleteDatabase('mythos_vault');
+                req.onsuccess = () => {
+                    log("DATABASE PURGED.", "ok");
+                    setTimeout(() => location.reload(), 1000);
+                };
+                req.onerror = (e) => log("Purge Failed: " + e.target.error, "err");
+
+            } catch (err) {
+                log(`Purge Error: ${err.message}`, "err");
+            }
+        }
+    };
+
+    // Auto-init
+    window.AGENT_MAN.init();
+
+    // Key status check
+    document.addEventListener('DOMContentLoaded', () => {
+        const keyStatusEl = document.getElementById('keyStatus');
+        const storedKey = sessionStorage.getItem('gemini-api-key');
+        if (storedKey) {
+            keyStatusEl.textContent = '[ KEY LOADED ]';
+            keyStatusEl.classList.add('ok');
+            keyStatusEl.style.color = 'var(--main-color)'; // Explicitly set color
+        } else {
+            keyStatusEl.textContent = '[ KEY UNLOADED ]';
+            keyStatusEl.classList.remove('ok');
+            keyStatusEl.style.color = 'var(--error-color)'; // Explicitly set color
+        }
+    });
+</script>
+
+</body>
+</html>
